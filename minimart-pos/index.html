@@ -1,0 +1,1355 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Mini-Mart POS</title>
+
+<!-- PWA Meta Tags -->
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#ea580c">
+<meta name="application-name" content="Mini-Mart POS">
+<meta name="description" content="ဆိုင်အတွက် POS စနစ်">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MiniMart">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+
+<script type="module">
+  import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm';
+  window.supabase = createClient(
+    'https://myuvjiqdojfoqsceblfz.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im15dXZqaXFkb2pmb3FzY2VibGZ6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAwNTk0NjksImV4cCI6MjEwNTYzNTQ2OX0.EXqPoIiIJDl06AESkKOfebYYZg3BTEEe3Ck2dxNHpd0'
+  );
+  console.log('[Supabase] Client ready');
+</script>
+
+<style>
+:root{--orange:#ea580c;--orange-dark:#c2410c;--orange-soft:#ffedd5;--bg:#fff7ed;--ink:#292524;--ink-soft:#78716c;--ink-faint:#a8a29e;--line:#f5f5f4;--green:#16a34a;--green-soft:#dcfce7;--blue:#2563eb;--blue-soft:#dbeafe;--amber:#f59e0b;--amber-soft:#fef3c7;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;margin:0;}
+body{font-family:'Padauk','Noto Sans Myanmar','Myanmar Text',system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink);overflow:hidden;}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit;padding:0;}
+input,select{font-family:inherit;}
+h1,h2,h3,p{margin:0;}
+.app{display:flex;height:100vh;height:100dvh;overflow:hidden;}
+
+/* Offline Badge */
+.offline-badge{position:fixed;top:8px;left:50%;transform:translateX(-50%);padding:8px 16px;border-radius:20px;font-size:12px;font-weight:800;z-index:300;box-shadow:0 4px 12px rgba(0,0,0,.15);display:none;align-items:center;gap:6px;animation:badgeSlide .3s ease;}
+.offline-badge.show{display:flex;}
+.offline-badge.offline{background:var(--amber-soft);color:#b45309;border:1px solid var(--amber);}
+.offline-badge.syncing{background:var(--blue-soft);color:#1e40af;border:1px solid var(--blue);}
+.offline-badge.synced{background:var(--green-soft);color:#15803d;border:1px solid var(--green);}
+@keyframes badgeSlide{from{opacity:0;transform:translate(-50%,-10px);}to{opacity:1;transform:translate(-50%,0);}}
+
+.sidebar{width:100px;flex-shrink:0;background:#fff;border-right:1px solid var(--orange-soft);display:flex;flex-direction:column;align-items:center;padding:16px 8px;gap:6px;}
+.brand-icon{width:52px;height:52px;border-radius:16px;background:var(--orange);display:flex;align-items:center;justify-content:center;font-size:26px;}
+.brand-name{font-size:11px;font-weight:800;color:var(--ink-soft);text-align:center;line-height:1.35;margin-top:6px;}
+.nav{display:flex;flex-direction:column;gap:8px;width:100%;margin-top:14px;}
+.nav-btn{position:relative;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 4px;border-radius:14px;font-size:12px;font-weight:700;color:var(--ink-soft);width:100%;}
+.nav-btn .nav-ico{font-size:22px;line-height:1;}
+.nav-btn.active{background:var(--orange-soft);color:var(--orange-dark);}
+.nav-btn .nav-badge{position:absolute;top:4px;right:12px;min-width:18px;height:18px;border-radius:9px;background:#dc2626;color:#fff;font-size:10px;font-weight:800;display:none;align-items:center;justify-content:center;padding:0 5px;}
+.nav-btn .nav-badge.show{display:flex;}
+
+.main{flex:1;min-width:0;min-height:0;display:flex;overflow:hidden;}
+.screen{display:none;flex:1;min-width:0;min-height:0;}
+.screen.active{display:block;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#screen-sale{flex-direction:column;}
+#screen-sale.active{display:flex;overflow:hidden;}
+
+.products-panel{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;}
+.panel-head{padding:14px 16px 8px;flex-shrink:0;}
+.panel-title-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
+.panel-title-row h2{font-size:15px;font-weight:800;color:var(--ink-soft);}
+.muted{color:var(--ink-faint);font-size:12px;font-weight:600;}
+.search{width:100%;height:48px;border-radius:14px;border:1px solid var(--orange-soft);background:#fff;padding:0 16px;font-size:15px;outline:none;color:var(--ink);}
+.search:focus{border-color:var(--orange);}
+.search::placeholder{color:var(--ink-faint);}
+.tabs{display:flex;gap:8px;overflow-x:auto;padding:12px 0 2px;scrollbar-width:none;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab{flex-shrink:0;padding:9px 16px;border-radius:999px;background:#fff;border:1px solid var(--orange-soft);font-size:13px;font-weight:700;color:var(--ink-soft);white-space:nowrap;}
+.tab.active{background:var(--orange);border-color:var(--orange);color:#fff;}
+.product-grid{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:6px 16px 22px;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;align-content:start;}
+@media(min-width:480px){.product-grid{grid-template-columns:repeat(3,minmax(0,1fr));}}
+@media(min-width:900px){.product-grid{grid-template-columns:repeat(4,minmax(0,1fr));}}
+@media(min-width:1280px){.product-grid{grid-template-columns:repeat(5,minmax(0,1fr));}}
+.grid-empty{grid-column:1/-1;text-align:center;color:var(--ink-faint);padding:48px 0;font-size:14px;font-weight:600;}
+.p-card{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;padding:12px 8px;background:#fff;border:1px solid var(--orange-soft);border-radius:16px;width:100%;aspect-ratio:1/1.05;min-height:120px;box-shadow:0 1px 2px rgba(0,0,0,.03);transition:background .12s,border-color .12s,transform .08s;text-align:center;overflow:hidden;}
+.p-card:active{background:#fff7ed;border-color:#fed7aa;transform:scale(.97);}
+.p-card .emoji{font-size:30px;line-height:1;}
+.p-card .p-image{width:100%;height:64px;object-fit:cover;border-radius:10px;margin-bottom:2px;background:#f5f5f4;}
+.p-card .p-name{font-weight:800;font-size:13.5px;line-height:1.2;color:var(--ink);max-width:100%;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+.p-card .p-price{color:var(--orange);font-weight:800;font-size:14px;line-height:1.15;}
+.p-card .p-meta{font-size:10.5px;color:var(--ink-faint);font-weight:700;line-height:1.2;}
+.p-card .p-meta.low{color:#b45309;}
+.p-card .p-meta.out{color:#a8a29e;}
+.p-card .p-plus{position:absolute;top:7px;right:7px;width:26px;height:26px;border-radius:9px;background:var(--orange);color:#fff;font-size:16px;font-weight:800;line-height:1;display:flex;align-items:center;justify-content:center;}
+.p-card.disabled{background:#f5f5f4;border-color:#e7e5e4;opacity:.65;cursor:not-allowed;}
+.p-card.disabled .p-plus{background:#d6d3d1;}
+
+.cart-panel{flex-shrink:0;display:flex;flex-direction:column;background:#fff;height:45vh;border-top:4px solid var(--orange-soft);}
+.cart-head{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);flex-shrink:0;}
+.cart-title{font-weight:800;font-size:15px;}
+.link-btn{font-size:12px;font-weight:700;color:var(--ink-faint);padding:6px 10px;border-radius:10px;}
+.link-btn:active{color:#dc2626;background:#fef2f2;}
+.cart-list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.cart-empty{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;color:#d6d3d1;padding:0 24px;text-align:center;}
+.cart-empty .big{font-size:36px;line-height:1;}
+.cart-empty p{font-size:13px;color:var(--ink-faint);font-weight:600;}
+.cart-item{display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid #fafaf9;}
+.ci-info{flex:1;min-width:0;}
+.ci-name{font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.ci-sub{font-size:12px;color:var(--ink-faint);margin-top:2px;font-weight:600;}
+.qty-ctrl{display:flex;align-items:center;gap:6px;flex-shrink:0;}
+.qty-btn{width:38px;height:38px;border-radius:50%;background:var(--orange-soft);color:var(--orange-dark);font-size:20px;font-weight:800;display:flex;align-items:center;justify-content:center;line-height:1;}
+.qty-btn:active{background:#fed7aa;}
+.qty-val{width:26px;text-align:center;font-weight:800;font-size:15px;}
+.ci-total{width:82px;text-align:right;font-weight:800;font-size:14px;flex-shrink:0;}
+.cart-foot{flex-shrink:0;border-top:1px solid var(--orange-soft);background:rgba(255,247,237,.75);padding:14px 16px 16px;}
+.total-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;}
+.total-row span{color:var(--ink-soft);font-weight:700;font-size:14px;}
+.total-row strong{font-size:24px;font-weight:800;letter-spacing:-.3px;}
+.btn-primary{width:100%;height:56px;border-radius:18px;background:var(--orange);color:#fff;font-size:17px;font-weight:800;}
+.btn-primary:active{background:var(--orange-dark);}
+.btn-primary:disabled{background:#d6d3d1;cursor:not-allowed;}
+.btn-success{background:var(--green);}
+.btn-success:active{background:#15803d;}
+
+.page{padding:16px;max-width:1150px;margin:0 auto 40px;}
+.page-head{margin-bottom:14px;}
+.page-head h2{font-size:19px;font-weight:800;}
+.page-head p{font-size:13px;color:var(--ink-faint);margin-top:3px;font-weight:600;}
+.form-card{background:#fff;border:1px solid var(--orange-soft);border-radius:20px;padding:16px;display:grid;grid-template-columns:1fr;gap:12px;margin-bottom:26px;}
+@media(min-width:640px){.form-card{grid-template-columns:1fr 1fr;}}
+.field{display:flex;flex-direction:column;gap:6px;min-width:0;}
+.field label{font-size:12px;font-weight:800;color:var(--ink-soft);}
+.field input,.field select{height:50px;border-radius:13px;border:1px solid #e7e5e4;background:#fff;padding:0 13px;font-size:15px;outline:none;color:var(--ink);width:100%;}
+.field input:focus,.field select:focus{border-color:var(--orange);}
+.field input::placeholder{color:#d6d3d1;}
+.field select{cursor:pointer;}
+.field .hint{font-size:11px;color:var(--ink-faint);font-weight:600;margin-top:2px;}
+.field input[type="file"]{height:auto;padding:11px 13px;font-size:13px;cursor:pointer;}
+.form-actions{grid-column:1/-1;display:flex;gap:10px;margin-top:2px;flex-wrap:wrap;}
+.form-actions .btn-primary{flex:1;min-width:140px;}
+.btn-ghost{height:56px;padding:0 22px;border-radius:18px;border:1px solid #e7e5e4;background:#fff;font-weight:800;color:var(--ink-soft);font-size:15px;}
+.btn-ghost:active{background:#fafaf9;}
+.btn-danger{height:56px;padding:0 22px;border-radius:18px;border:1px solid #fecaca;background:#fff;font-weight:800;color:#dc2626;font-size:15px;}
+.btn-danger:active{background:#fef2f2;}
+
+.image-preview-wrap{grid-column:1/-1;display:flex;flex-direction:column;gap:8px;}
+.image-preview{position:relative;display:inline-block;width:140px;height:140px;border-radius:14px;border:2px dashed var(--orange-soft);background:#fffaf5;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+.image-preview img{width:100%;height:100%;object-fit:cover;}
+.image-preview .placeholder{color:var(--ink-faint);font-size:11px;font-weight:700;text-align:center;padding:8px;}
+.image-preview .remove-btn{position:absolute;top:6px;right:6px;width:26px;height:26px;border-radius:50%;background:rgba(220,38,38,.9);color:#fff;font-size:14px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+
+.purchase-total{background:var(--blue-soft);color:#1e40af;border-radius:14px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;grid-column:1/-1;}
+.purchase-total span{font-size:13px;font-weight:800;}
+.purchase-total strong{font-size:22px;font-weight:800;}
+.purchase-card{background:#fff;border:1px solid var(--orange-soft);border-radius:20px;padding:16px;margin-bottom:16px;}
+.purchase-card h3{font-size:15px;font-weight:800;margin-bottom:10px;color:var(--ink-soft);}
+.purchase-list{max-height:340px;overflow-y:auto;}
+.purchase-item{display:flex;align-items:flex-start;gap:10px;padding:10px 0;border-bottom:1px solid #fafaf9;}
+.purchase-item:last-child{border-bottom:none;}
+.purchase-item .emoji{font-size:24px;flex-shrink:0;}
+.purchase-item .info{flex:1;min-width:0;}
+.purchase-item .info .name{font-weight:800;font-size:14px;}
+.purchase-item .info .sub{font-size:12px;color:var(--ink-faint);font-weight:600;margin-top:2px;}
+.purchase-item .info .supplier{font-size:11px;color:var(--blue);font-weight:800;margin-top:2px;}
+.purchase-item .qty{font-weight:800;color:var(--green);font-size:15px;flex-shrink:0;}
+
+.table-head-row{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px;}
+.table-head-row h3{font-size:15px;font-weight:800;color:var(--ink-soft);}
+.table-wrap{overflow-x:auto;background:#fff;border:1px solid var(--orange-soft);border-radius:20px;-webkit-overflow-scrolling:touch;}
+table{width:100%;border-collapse:collapse;min-width:1040px;font-size:13px;}
+thead th{background:#fff7ed;color:var(--ink-soft);font-size:11.5px;font-weight:800;text-align:left;padding:12px;white-space:nowrap;border-bottom:1px solid var(--orange-soft);}
+tbody td{padding:12px;border-bottom:1px solid #fafaf9;vertical-align:middle;}
+tbody tr:last-child td{border-bottom:none;}
+td code{background:#f5f5f4;padding:2px 7px;border-radius:6px;font-size:12px;color:var(--ink-soft);}
+.chip{display:inline-block;background:var(--orange-soft);color:var(--orange-dark);font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px;margin:1px 3px 1px 0;}
+.low-text{color:#b45309;font-weight:800;}
+.empty-row{text-align:center;color:var(--ink-faint);padding:30px 0;font-weight:600;}
+.row-actions{white-space:nowrap;}
+.icon-btn{width:38px;height:38px;border-radius:10px;font-size:15px;display:inline-flex;align-items:center;justify-content:center;background:#fafaf9;margin-right:4px;border:1px solid #f0efee;}
+.icon-btn:active{background:#f5f5f4;}
+.table-thumb{width:40px;height:40px;border-radius:8px;object-fit:cover;background:#f5f5f4;}
+
+.bottom-nav{display:none;}
+
+.toast{position:fixed;top:16px;left:50%;transform:translate(-50%,-250%);background:var(--ink);color:#fff;padding:13px 22px;border-radius:16px;font-size:14px;font-weight:700;box-shadow:0 12px 30px rgba(0,0,0,.22);transition:transform .32s cubic-bezier(.2,.9,.3,1.3);z-index:200;max-width:92vw;text-align:center;pointer-events:none;}
+.toast.show{transform:translate(-50%,0);}
+
+@media(min-width:768px){
+  #screen-sale{flex-direction:row;}
+  .cart-panel{width:380px;height:auto;border-top:0;border-left:1px solid var(--orange-soft);}
+  .page{padding:22px;}
+}
+@media(max-width:767px){
+  .app{flex-direction:column;}
+  .sidebar{display:none;}
+  .bottom-nav{display:flex;flex-shrink:0;background:#fff;border-top:1px solid var(--orange-soft);padding:6px 4px calc(6px + env(safe-area-inset-bottom));gap:4px;}
+  .bottom-nav .nav-btn{flex:1;padding:7px 2px;font-size:10px;}
+  .bottom-nav .nav-btn .nav-ico{font-size:20px;}
+  .cart-panel{height:44vh;}
+}
+</style>
+</head>
+<body>
+
+<div id="jsError" style="display:none;position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:10px 14px;font-size:13px;font-weight:700;z-index:9999;text-align:center;"></div>
+
+<div id="offlineBadge" class="offline-badge"></div>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand-icon">🏪</div>
+    <div class="brand-name">Mini-Mart<br>POS</div>
+    <nav class="nav">
+      <button type="button" class="nav-btn active" data-screen="sale" onclick="APP.go('sale');return false;">
+        <span class="nav-ico">🛒</span><span>အရောင်း</span>
+      </button>
+      <button type="button" class="nav-btn" data-screen="purchase" onclick="APP.go('purchase');return false;">
+        <span class="nav-ico">📥</span><span>အဝယ်</span>
+      </button>
+      <button type="button" class="nav-btn" data-screen="product" onclick="APP.go('product');return false;">
+        <span class="nav-ico">📦</span><span>ကုန်ပစ္စည်း</span>
+        <span class="nav-badge" id="queueBadge">0</span>
+      </button>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <section id="screen-sale" class="screen active">
+      <div class="products-panel">
+        <div class="panel-head">
+          <div class="panel-title-row">
+            <h2>ကုန်ပစ္စည်းများ</h2>
+            <span class="muted" id="productCount"></span>
+          </div>
+          <input id="searchInput" class="search" type="search" placeholder="🔍 ရှာဖွေရန် (အမည် / ဘားကုဒ်)" autocomplete="off" oninput="APP.onSearch(this.value)">
+          <div class="tabs" id="categoryTabs"></div>
+        </div>
+        <div class="product-grid" id="productGrid"></div>
+      </div>
+
+      <div class="cart-panel" id="cartPanel">
+        <div class="cart-head">
+          <div class="cart-title">🛒 Cart <span id="cartCount"></span></div>
+          <button type="button" class="link-btn" id="clearCartBtn" style="visibility:hidden" onclick="APP.clearCart();return false;">🗑 ရှင်းမည်</button>
+        </div>
+        <div class="cart-list" id="cartList"></div>
+        <div class="cart-foot">
+          <div class="total-row">
+            <span>စုစုပေါင်း</span>
+            <strong id="cartTotal">0 Ks</strong>
+          </div>
+          <button type="button" class="btn-primary" id="checkoutBtn" disabled onclick="APP.checkout();return false;">ငွေရှင်းမည်</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-purchase" class="screen">
+      <div class="page">
+        <div class="page-head">
+          <h2>📥 အဝယ် — Stock ဖြည့်ရန်</h2>
+          <p>ကုန်ပစ္စည်း ဝယ်ယူပြီး Stock ဖြည့်လိုက်တာနဲ့ Supabase သို့ ချက်ချင်း သိမ်းပါမည်</p>
+        </div>
+
+        <form class="form-card" id="purchaseForm" autocomplete="off" novalidate onsubmit="APP.submitPurchase(event);return false;">
+          <div class="field" style="grid-column:1/-1;">
+            <label for="pProduct">ကုန်ပစ္စည်း ရွေးပါ *</label>
+            <select id="pProduct" onchange="APP.onPurchaseProductChange()"></select>
+          </div>
+          <div class="field" style="grid-column:1/-1;">
+            <label for="pSupplier">Supplier (ကုန်သည်) *</label>
+            <input id="pSupplier" type="text" list="supplierList" placeholder="ဥပမာ — ဦးမောင် / ဒေါ်မြင့်">
+            <datalist id="supplierList"></datalist>
+          </div>
+          <div class="field">
+            <label for="pQty">အရေအတွက် (ဖြည့်မည့်) *</label>
+            <input id="pQty" type="number" min="1" step="1" inputmode="numeric" placeholder="0" oninput="APP.calcPurchaseTotal()">
+          </div>
+          <div class="field">
+            <label for="pCost">တစ်ခုချင်း အရင်းဈေး (Cost)</label>
+            <input id="pCost" type="number" min="0" step="1" inputmode="numeric" placeholder="0" oninput="APP.calcPurchaseTotal()">
+          </div>
+          <div class="purchase-total">
+            <span>စုစုပေါင်း အရင်းကျသင့်ငွေ</span>
+            <strong id="pTotal">0 Ks</strong>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-primary btn-success" onclick="APP.submitPurchase(event);return false;">📥 အဝယ်မှတ်တမ်းတင်မည်</button>
+            <button type="button" class="btn-ghost" onclick="APP.resetPurchaseForm();return false;">ပယ်ဖျက်</button>
+          </div>
+        </form>
+
+        <div class="purchase-card">
+          <h3>📋 မကြာသေးမီ အဝယ်မှတ်တမ်းများ</h3>
+          <div class="purchase-list" id="recentPurchases"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="screen-product" class="screen">
+      <div class="page">
+        <div class="page-head">
+          <h2 id="formTitle">ကုန်ပစ္စည်း အသစ်ထည့်ရန်</h2>
+          <p>ဖြည့်စွက်ပြီး သိမ်းဆည်းလိုက်တာနဲ့ Supabase သို့ ချက်ချင်း သိမ်းပါမည်</p>
+        </div>
+
+        <form class="form-card" id="productForm" autocomplete="off" novalidate onsubmit="APP.submitForm(event);return false;">
+          <div class="field"><label for="fName">အမည် *</label><input id="fName" type="text" placeholder="ဥပမာ — ဆန်"></div>
+          <div class="field">
+            <label for="fCategory">အမျိုးအစား (Category) *</label>
+            <select id="fCategory" onchange="APP.onCategoryChange()">
+              <option value="">— ရွေးပါ —</option>
+            </select>
+            <input id="fCategoryNew" type="text" placeholder="အသစ် အမျိုးအစား အမည်..." style="display:none;margin-top:8px;">
+          </div>
+          <div class="field"><label for="fPrice">ရောင်းဈေး (Price) *</label><input id="fPrice" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+          <div class="field"><label for="fCost">အရင်းဈေး (Cost)</label><input id="fCost" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+          <div class="field"><label for="fBarcode">ဘားကုဒ် (Barcode)</label><input id="fBarcode" type="text" inputmode="numeric" placeholder="100001"></div>
+          <div class="field"><label for="fLow">Low Stock Alert</label><input id="fLow" type="number" min="0" step="1" inputmode="numeric" placeholder="10"></div>
+          <div class="field"><label for="fVariants">Variants (ကော်မာဖြင့် ခွဲပါ)</label><input id="fVariants" type="text" placeholder="အိတ်, ကီလို"></div>
+          <div class="field"><label for="fStock">စတင် Stock အရေအတွက်</label><input id="fStock" type="number" min="0" step="1" inputmode="numeric" placeholder="0"></div>
+          <div class="field"><label for="fEmoji">အိုင်ကွန် (Emoji)</label><input id="fEmoji" type="text" maxlength="4" placeholder="📦"></div>
+
+          <div class="image-preview-wrap">
+            <label style="font-size:12px;font-weight:800;color:var(--ink-soft);">ပစ္စည်း ဓာတ်ပုံ (Optional)</label>
+            <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;">
+              <div class="image-preview" id="imagePreview">
+                <div class="placeholder">📷<br>ဓာတ်ပုံ မရှိသေး</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:8px;flex:1;min-width:180px;">
+                <input type="file" id="fImage" accept="image/*" onchange="APP.onImageSelected(this)">
+                <span class="hint">ဓာတ်ပုံ 2MB အောက် • JPG / PNG • 800×800px အထိ ကောင်း</span>
+                <button type="button" class="btn-ghost" style="height:42px;font-size:13px;" onclick="APP.removeImage();return false;">🗑 ဓာတ်ပုံ ဖျက်</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-actions">
+            <button type="button" class="btn-primary" id="saveBtn" onclick="APP.submitForm(event);return false;">သိမ်းဆည်းမည်</button>
+            <button type="button" class="btn-ghost" onclick="APP.resetForm();return false;">ပယ်ဖျက်</button>
+            <button type="button" class="btn-ghost" onclick="APP.syncFromSupabase();return false;">🔄 Supabase မှ ပြန်ဆွဲ</button>
+            <button type="button" class="btn-ghost" onclick="APP.manualSync();return false;" id="syncBtn" style="display:none;">📤 Sync (0)</button>
+          </div>
+        </form>
+
+        <div class="table-head-row">
+          <h3>ကုန်ပစ္စည်း စာရင်း</h3>
+          <span class="muted" id="tableCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>ပုံ</th><th>Name</th><th>Category</th><th>Price</th><th>Cost</th><th>Barcode</th><th>Low</th><th>Variants</th><th>Stock</th><th></th></tr></thead>
+            <tbody id="productTbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button type="button" class="nav-btn active" data-screen="sale" onclick="APP.go('sale');return false;">
+      <span class="nav-ico">🛒</span><span>အရောင်း</span>
+    </button>
+    <button type="button" class="nav-btn" data-screen="purchase" onclick="APP.go('purchase');return false;">
+      <span class="nav-ico">📥</span><span>အဝယ်</span>
+    </button>
+    <button type="button" class="nav-btn" data-screen="product" onclick="APP.go('product');return false;">
+      <span class="nav-ico">📦</span><span>ကုန်ပစ္စည်း</span>
+      <span class="nav-badge" id="queueBadgeMobile">0</span>
+    </button>
+  </nav>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+window.addEventListener('error', function(e){
+  var el = document.getElementById('jsError');
+  if (el){ el.style.display = 'block'; el.textContent = '⚠ JS Error: ' + (e.message || 'unknown'); }
+});
+
+/* Safe storage */
+var Storage = (function(){
+  var mem = {};
+  var ok = false;
+  try { window.localStorage.setItem('__t__','1'); window.localStorage.removeItem('__t__'); ok = true; } catch(e){ ok = false; }
+  if (ok){
+    return {
+      keys: function(){ var o=[]; for (var i=0;i<window.localStorage.length;i++) o.push(window.localStorage.key(i)); return o; },
+      get: function(k, fb){ var raw = window.localStorage.getItem(k); if (raw===null) return fb===undefined?null:fb; try { return JSON.parse(raw); } catch(e){ return fb===undefined?null:fb; } },
+      set: function(k,v){ try { window.localStorage.setItem(k, JSON.stringify(v)); } catch(e){} },
+      remove: function(k){ try { window.localStorage.removeItem(k); } catch(e){} }
+    };
+  }
+  return {
+    keys: function(){ return Object.keys(mem); },
+    get: function(k, fb){ return mem[k]!==undefined ? mem[k] : (fb===undefined?null:fb); },
+    set: function(k,v){ mem[k]=v; },
+    remove: function(k){ delete mem[k]; }
+  };
+})();
+function keysWithPrefix(p){ return Storage.keys().filter(function(k){ return k.indexOf(p)===0; }); }
+
+var state = { 
+  products: [], cart: [], activeCategory: 'all', searchTerm: '', 
+  editingId: null, purchases: [], suppliers: [], online: true,
+  pendingImageUrl: '',
+  originalImageUrl: ''
+};
+var toastTimer = null;
+var STORAGE_BUCKET = 'product-images';
+
+/* =========================================================
+   SYNC QUEUE
+   ========================================================= */
+var QUEUE_KEY = 'config:syncQueue';
+
+function getQueue(){ return Storage.get(QUEUE_KEY, []); }
+function setQueue(q){ Storage.set(QUEUE_KEY, q); updateQueueBadge(); }
+function addToQueue(action){
+  var q = getQueue();
+  q.push(Object.assign({}, action, {
+    _id: Date.now() + '-' + Math.random().toString(36).slice(2, 8),
+    _queued_at: new Date().toISOString()
+  }));
+  setQueue(q);
+  console.log('[Queue] Added:', action.type, '| Total:', q.length);
+}
+function updateQueueBadge(){
+  var count = getQueue().length;
+  var badge = document.getElementById('queueBadge');
+  var badgeMobile = document.getElementById('queueBadgeMobile');
+  var syncBtn = document.getElementById('syncBtn');
+  
+  if (badge){
+    if (count > 0){ badge.textContent = count; badge.classList.add('show'); }
+    else { badge.classList.remove('show'); }
+  }
+  if (badgeMobile){
+    if (count > 0){ badgeMobile.textContent = count; badgeMobile.classList.add('show'); }
+    else { badgeMobile.classList.remove('show'); }
+  }
+  if (syncBtn){
+    if (count > 0){ syncBtn.style.display = ''; syncBtn.textContent = '📤 Sync (' + count + ')'; }
+    else { syncBtn.style.display = 'none'; }
+  }
+}
+
+async function processQueue(){
+  var q = getQueue();
+  if (!q.length) return { processed: 0, failed: 0, total: 0 };
+  if (!navigator.onLine) return { processed: 0, failed: 0, total: q.length };
+
+  console.log('[Queue] Processing', q.length, 'items');
+  updateOfflineBadge('syncing', '🔄 Sync လုပ်နေသည်... (' + q.length + ')');
+
+  var remaining = [];
+  var processed = 0;
+  var failed = 0;
+
+  for (var i = 0; i < q.length; i++){
+    var action = q[i];
+    try {
+      await executeQueueAction(action);
+      processed++;
+      updateOfflineBadge('syncing', '🔄 Sync (' + processed + '/' + q.length + ')');
+    } catch(e){
+      console.warn('[Queue] Failed:', action.type, e.message);
+      failed++;
+      remaining.push(action);
+    }
+  }
+
+  setQueue(remaining);
+  return { processed: processed, failed: failed, total: q.length };
+}
+
+async function executeQueueAction(action){
+  var s = sb();
+  
+  if (action.type === 'sale'){
+    var r1 = await s.from('sales').insert(action.salesRows);
+    if (r1.error) throw r1.error;
+    for (var i = 0; i < action.stockUpdates.length; i++){
+      var u = action.stockUpdates[i];
+      var r2 = await s.from('products').update({ stock: u.newStock, updated_at: action.created_at }).eq('id', u.id);
+      if (r2.error) throw r2.error;
+    }
+    var localSale = Storage.get('sales:' + action.sale_id, {});
+    localSale.synced = true;
+    Storage.set('sales:' + action.sale_id, localSale);
+    return;
+  }
+  if (action.type === 'purchase'){
+    var r3 = await s.from('stock_entries').insert(action.entry);
+    if (r3.error) throw r3.error;
+    var r4 = await s.from('products').update({ stock: action.newStock, updated_at: action.created_at }).eq('id', action.product_id);
+    if (r4.error) throw r4.error;
+    return;
+  }
+  if (action.type === 'product-create'){
+    var r5 = await s.from('products').insert(action.data).select().single();
+    if (r5.error) throw r5.error;
+    if (action.tempId){
+      Storage.remove('products:' + action.tempId);
+      Storage.set('products:' + r5.data.id, dbToProduct(r5.data));
+    }
+    return;
+  }
+  if (action.type === 'product-update'){
+    var r6 = await s.from('products').update(action.data).eq('id', action.id);
+    if (r6.error) throw r6.error;
+    return;
+  }
+  if (action.type === 'product-delete'){
+    var r7 = await s.from('products').delete().eq('id', action.id);
+    if (r7.error) throw r7.error;
+    return;
+  }
+  throw new Error('Unknown action: ' + action.type);
+}
+
+function updateOfflineBadge(stateName, text){
+  var badge = document.getElementById('offlineBadge');
+  if (!badge) return;
+  var q = getQueue();
+
+  if (stateName){
+    badge.className = 'offline-badge show ' + stateName;
+    badge.innerHTML = text;
+    return;
+  }
+
+  if (!navigator.onLine){
+    badge.className = 'offline-badge show offline';
+    badge.innerHTML = '📴 Offline' + (q.length ? ' — ' + q.length + ' ခု စောင့်' : '');
+  } else if (q.length > 0){
+    badge.className = 'offline-badge show syncing';
+    badge.innerHTML = '🔄 Sync လုပ်နေသည် (' + q.length + ')';
+  } else {
+    badge.className = 'offline-badge';
+  }
+}
+
+async function autoSync(){
+  if (!navigator.onLine) return;
+  var q = getQueue();
+  if (!q.length) return;
+  
+  var result = await processQueue();
+  
+  if (result.processed > 0){
+    showToast('✅ ' + result.processed + ' ခု sync ပြီး');
+    updateOfflineBadge('synced', '✅ Sync ပြီး');
+    setTimeout(function(){ updateOfflineBadge(); }, 2000);
+    await APP.loadProducts();
+    renderTabs(); renderProducts(); renderTable();
+    renderPurchaseSelect(); renderRecentPurchases();
+  } else if (result.failed > 0){
+    showToast('⚠ ' + result.failed + ' ခု sync မရ');
+    updateOfflineBadge('offline', '⚠ ' + result.failed + ' ခု sync မရ');
+  }
+  updateQueueBadge();
+}
+
+window.addEventListener('online', function(){
+  state.online = true;
+  showToast('🌐 Online — Sync စတင်သည်');
+  autoSync();
+});
+window.addEventListener('offline', function(){
+  state.online = false;
+  showToast('📴 Offline mode');
+  updateOfflineBadge();
+});
+
+/* Service Worker */
+if ('serviceWorker' in navigator && location.protocol === 'https:'){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('./sw.js')
+      .then(function(reg){ console.log('[SW] Registered:', reg.scope); })
+      .catch(function(err){ console.warn('[SW] Failed:', err.message); });
+  });
+}
+
+/* Helpers */
+function formatKs(n){ return (Number(n)||0).toLocaleString('en-US') + ' Ks'; }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+function unitOf(p){ return (p.variants && p.variants.length) ? p.variants[0] : 'ခု'; }
+function showToast(msg){
+  var el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ el.classList.remove('show'); }, 2400);
+}
+
+var DEFAULT_CATEGORIES = [
+  'စားသောက်ကုန်', 'လူသုံးကုန်', 'စာရေးကိရိယာ', 'အထွေထွေ',
+  'အစားအသောက်', 'သောက်စရာ', 'အိမ်သုံး', 'ဆေးဝါး',
+  'အလှကုန်', 'အဝတ်အထည်', 'ကလေးပစ္စည်း', 'အီလက်ထရောနစ်',
+  'ဆေးလိပ်/အရက်', 'တည်းခိုရေး', 'အခြား'
+];
+
+function getAllCategories(){
+  var set = {};
+  DEFAULT_CATEGORIES.forEach(function(c){ set[c] = true; });
+  var custom = Storage.get('config:customCategories', []);
+  custom.forEach(function(c){ set[c] = true; });
+  state.products.forEach(function(p){ if (p.category) set[p.category] = true; });
+  return Object.keys(set).sort();
+}
+function addCustomCategory(name){
+  if (!name) return;
+  var list = Storage.get('config:customCategories', []);
+  if (list.indexOf(name) === -1){ list.push(name); Storage.set('config:customCategories', list); }
+}
+function renderCategorySelect(selectedValue){
+  var sel = document.getElementById('fCategory');
+  if (!sel) return;
+  var cats = getAllCategories();
+  var html = '<option value="">— ရွေးပါ —</option>';
+  cats.forEach(function(c){
+    var selected = (c === selectedValue) ? ' selected' : '';
+    html += '<option value="' + esc(c) + '"' + selected + '>' + esc(c) + '</option>';
+  });
+  html += '<option value="__NEW__">➕ အသစ် ထည့်...</option>';
+  sel.innerHTML = html;
+  var newInput = document.getElementById('fCategoryNew');
+  if (selectedValue === '__NEW__') { newInput.style.display = 'block'; }
+  else { newInput.style.display = 'none'; }
+}
+
+function sb(){
+  if (!window.supabase) throw new Error('Supabase client မရသေး');
+  return window.supabase;
+}
+function dbToProduct(row){
+  return {
+    id: row.id, name: row.name, category: row.category || 'အခြား',
+    price: Number(row.price) || 0, cost: Number(row.cost) || 0,
+    barcode: row.barcode || '', lowStockAlert: Number(row.low_stock_alert) || 0,
+    variants: Array.isArray(row.variants) ? row.variants : [],
+    emoji: row.emoji || '📦', stock: Number(row.stock) || 0,
+    imageUrl: row.image_url || ''
+  };
+}
+function productToDb(p){
+  return {
+    name: p.name, category: p.category || 'အခြား',
+    price: Number(p.price) || 0, cost: Number(p.cost) || 0,
+    barcode: p.barcode || '', low_stock_alert: Number(p.lowStockAlert) || 0,
+    variants: Array.isArray(p.variants) ? p.variants : [],
+    emoji: p.emoji || '📦', stock: Number(p.stock) || 0,
+    image_url: p.imageUrl || ''
+  };
+}
+
+/* Image upload */
+function resizeImage(file, maxSize){
+  return new Promise(function(resolve){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var img = new Image();
+      img.onload = function(){
+        var canvas = document.createElement('canvas');
+        var w = img.width, h = img.height;
+        if (w > h){ if (w > maxSize){ h = h * maxSize / w; w = maxSize; } }
+        else { if (h > maxSize){ w = w * maxSize / h; h = maxSize; } }
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function(blob){ resolve(blob); }, 'image/jpeg', 0.82);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+async function uploadImageToStorage(file){
+  if (file.size > 2 * 1024 * 1024) throw new Error('ဓာတ်ပုံ 2MB ကျော်လို့ မရပါ');
+  if (!navigator.onLine) throw new Error('Offline မှာ ဓာတ်ပုံ တင်လို့မရပါ — Online ရောက်မှ ထည့်ပါ');
+  var blob = await resizeImage(file, 800);
+  var fileName = 'products/' + Date.now() + '-' + Math.random().toString(36).slice(2,8) + '.jpg';
+  var res = await sb().storage.from(STORAGE_BUCKET).upload(fileName, blob, {
+    contentType: 'image/jpeg', cacheControl: '31536000', upsert: false
+  });
+  if (res.error) throw res.error;
+  var urlRes = sb().storage.from(STORAGE_BUCKET).getPublicUrl(fileName);
+  return { url: urlRes.data.publicUrl, path: fileName };
+}
+
+async function deleteImageFromStorage(url){
+  if (!url) return;
+  if (!navigator.onLine) return;
+  try {
+    var parts = url.split('/' + STORAGE_BUCKET + '/');
+    if (parts.length < 2) return;
+    await sb().storage.from(STORAGE_BUCKET).remove([parts[1]]);
+  } catch(e){ console.warn('[Storage] delete failed:', e); }
+}
+
+/* SEED */
+var SEED_PRODUCTS = [
+  { id:1, name:"ဆန်", category:"စားသောက်ကုန်", price:4500, cost:3800, barcode:"100001", lowStockAlert:10, variants:["အိတ်"], emoji:"🌾", stock:25 },
+  { id:2, name:"ဆီ", category:"စားသောက်ကုန်", price:8000, cost:6800, barcode:"100002", lowStockAlert:10, variants:["ပုလင်း"], emoji:"🛢️", stock:40 },
+  { id:3, name:"သကြား", category:"စားသောက်ကုန်", price:2800, cost:2200, barcode:"100003", lowStockAlert:15, variants:["ကီလို"], emoji:"🧂", stock:60 },
+  { id:4, name:"ဆပ်ပြာ", category:"လူသုံးကုန်", price:1200, cost:850, barcode:"100004", lowStockAlert:12, variants:["ဘား"], emoji:"🧼", stock:8 },
+  { id:5, name:"ဆေးလိပ်", category:"အထွေထွေ", price:3500, cost:3000, barcode:"100005", lowStockAlert:5, variants:["ထုပ်"], emoji:"🚬", stock:0 }
+];
+var SEED_SUPPLIERS = ["ဦးမောင်", "ဒေါ်မြင့်", "ဦးသန်း", "ကုမ္ပဏီ ABC"];
+
+function seedLocalIfNeeded(){
+  if (keysWithPrefix('products:').length > 0) return;
+  SEED_PRODUCTS.forEach(function(p){ Storage.set('products:'+p.id, p); });
+  Storage.set('config:suppliers', SEED_SUPPLIERS);
+}
+
+function getSuppliers(){ return Storage.get('config:suppliers', []); }
+function addSupplierIfNew(name){
+  if (!name) return;
+  var list = getSuppliers();
+  if (list.indexOf(name) === -1){ list.push(name); Storage.set('config:suppliers', list); }
+}
+function renderSupplierDatalist(){
+  document.getElementById('supplierList').innerHTML =
+    getSuppliers().map(function(s){ return '<option value="' + esc(s) + '"></option>'; }).join('');
+}
+
+function renderTabs(){
+  var cats = ['all'];
+  state.products.forEach(function(p){ if (p.category && cats.indexOf(p.category)===-1) cats.push(p.category); });
+  var html = '';
+  cats.forEach(function(c){
+    html += '<button type="button" class="tab ' + (state.activeCategory===c?'active':'') + '" '
+         + 'onclick="APP.setCategory(\'' + esc(c).replace(/'/g, "\\'") + '\');return false;">'
+         + (c==='all' ? 'အားလုံး' : esc(c)) + '</button>';
+  });
+  document.getElementById('categoryTabs').innerHTML = html;
+  renderCategorySelect();
+}
+
+function renderProducts(){
+  var grid = document.getElementById('productGrid');
+  var q = (state.searchTerm || '').trim().toLowerCase();
+  var list = state.products.filter(function(p){
+    var catOk = state.activeCategory === 'all' || p.category === state.activeCategory;
+    var nameOk = (p.name||'').toLowerCase().indexOf(q) !== -1;
+    var codeOk = String(p.barcode||'').indexOf(q) !== -1;
+    return catOk && (!q || nameOk || codeOk);
+  });
+  document.getElementById('productCount').textContent = list.length + ' မျိုး';
+  if (!list.length){ grid.innerHTML = '<div class="grid-empty">ကုန်ပစ္စည်း မတွေ့ပါ</div>'; return; }
+  var html = '';
+  list.forEach(function(p){
+    var stock = Number(p.stock) || 0;
+    var out = stock <= 0;
+    var low = !out && stock <= (Number(p.lowStockAlert)||0);
+    var stockText = out ? 'ကုန်ပြီ' : (low ? '⚠ ကျန် ' + stock : 'ကျန် ' + stock);
+    var metaCls = out ? 'out' : (low ? 'low' : '');
+    var visualHtml = p.imageUrl
+      ? '<img class="p-image" src="' + esc(p.imageUrl) + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'block\';"><span class="emoji" style="display:none;">' + esc(p.emoji || '📦') + '</span>'
+      : '<span class="emoji">' + esc(p.emoji || '📦') + '</span>';
+    html += '<button type="button" class="p-card ' + (out?'disabled':'') + '" '
+         + (out ? 'disabled' : '')
+         + ' onclick="' + (out ? '' : 'APP.addToCart(' + p.id + ');') + 'return false;">'
+         +   '<span class="p-plus">+</span>'
+         +   visualHtml
+         +   '<span class="p-name">' + esc(p.name) + '</span>'
+         +   '<span class="p-price">' + formatKs(p.price) + '</span>'
+         +   '<span class="p-meta ' + metaCls + '">' + esc(unitOf(p)) + ' · ' + stockText + '</span>'
+         + '</button>';
+  });
+  grid.innerHTML = html;
+}
+
+function renderCart(){
+  var listEl = document.getElementById('cartList');
+  var count = 0;
+  state.cart.forEach(function(i){ count += i.qty; });
+  document.getElementById('cartCount').textContent = count ? '(' + count + ')' : '';
+  document.getElementById('clearCartBtn').style.visibility = state.cart.length ? 'visible' : 'hidden';
+  if (!state.cart.length){
+    listEl.innerHTML = '<div class="cart-empty"><div class="big">🛒</div><p>ပစ္စည်းရွေးချယ်ရန် Product ကို နှိပ်ပါ</p></div>';
+  } else {
+    var html = '';
+    state.cart.forEach(function(i){
+      html += '<div class="cart-item">'
+           +   '<div class="ci-info"><p class="ci-name">' + esc(i.name) + '</p>'
+           +   '<p class="ci-sub">' + formatKs(i.price) + ' × ' + i.qty + ' ' + esc(i.unit) + '</p></div>'
+           +   '<div class="qty-ctrl">'
+           +     '<button type="button" class="qty-btn" onclick="APP.changeQty(' + i.product_id + ', -1);return false;">−</button>'
+           +     '<span class="qty-val">' + i.qty + '</span>'
+           +     '<button type="button" class="qty-btn" onclick="APP.changeQty(' + i.product_id + ', 1);return false;">+</button>'
+           +   '</div>'
+           +   '<div class="ci-total">' + formatKs(i.price * i.qty) + '</div>'
+           + '</div>';
+    });
+    listEl.innerHTML = html;
+  }
+  var total = 0;
+  state.cart.forEach(function(i){ total += i.price * i.qty; });
+  document.getElementById('cartTotal').textContent = formatKs(total);
+  document.getElementById('checkoutBtn').disabled = state.cart.length === 0;
+}
+
+function renderTable(){
+  var tbody = document.getElementById('productTbody');
+  document.getElementById('tableCount').textContent = state.products.length + ' မျိုး';
+  if (!state.products.length){
+    tbody.innerHTML = '<tr><td colspan="10" class="empty-row">ကုန်ပစ္စည်း မရှိသေးပါ</td></tr>';
+    return;
+  }
+  var html = '';
+  state.products.forEach(function(p){
+    var stock = Number(p.stock) || 0;
+    var alert = Number(p.lowStockAlert)||0;
+    var low = stock <= alert;
+    var variants = (p.variants && p.variants.length)
+      ? p.variants.map(function(v){ return '<span class="chip">' + esc(v) + '</span>'; }).join('')
+      : '<span class="muted">-</span>';
+    var thumb = p.imageUrl
+      ? '<img class="table-thumb" src="' + esc(p.imageUrl) + '" alt="" loading="lazy" onerror="this.style.display=\'none\';this.nextElementSibling.style.display=\'block\';"><span style="display:none;">' + esc(p.emoji||'📦') + '</span>'
+      : '<span style="font-size:22px;">' + esc(p.emoji || '📦') + '</span>';
+    html += '<tr>'
+         +   '<td>' + thumb + '</td>'
+         +   '<td><strong>' + esc(p.name) + '</strong></td>'
+         +   '<td>' + esc(p.category || '-') + '</td>'
+         +   '<td>' + formatKs(p.price) + '</td>'
+         +   '<td>' + formatKs(p.cost || 0) + '</td>'
+         +   '<td><code>' + esc(p.barcode || '-') + '</code></td>'
+         +   '<td>' + alert + '</td>'
+         +   '<td>' + variants + '</td>'
+         +   '<td class="' + (low?'low-text':'') + '">' + stock + (low?' ⚠':'') + '</td>'
+         +   '<td class="row-actions">'
+         +     '<button type="button" class="icon-btn" onclick="APP.editProduct(' + p.id + ');return false;">✏️</button>'
+         +     '<button type="button" class="icon-btn" onclick="APP.deleteProduct(' + p.id + ');return false;">🗑</button>'
+         +   '</td>'
+         + '</tr>';
+  });
+  tbody.innerHTML = html;
+}
+
+function renderPurchaseSelect(){
+  var sel = document.getElementById('pProduct');
+  var html = '<option value="">— ရွေးပါ —</option>';
+  state.products.forEach(function(p){
+    html += '<option value="' + p.id + '">' + esc(p.emoji || '📦') + ' ' + esc(p.name)
+         + ' (လက်ကျန် ' + p.stock + ' ' + esc(unitOf(p)) + ')</option>';
+  });
+  sel.innerHTML = html;
+}
+
+function renderRecentPurchases(){
+  var el = document.getElementById('recentPurchases');
+  if (!state.purchases.length){ el.innerHTML = '<div class="empty-row">မှတ်တမ်း မရှိသေးပါ</div>'; return; }
+  var html = '';
+  state.purchases.slice(0, 20).forEach(function(p){
+    html += '<div class="purchase-item">'
+         +   '<div class="emoji">' + esc(p.emoji || '📦') + '</div>'
+         +   '<div class="info"><div class="name">' + esc(p.product_name) + '</div>'
+         +   '<div class="sub">' + formatKs(p.cost_price) + ' × ' + p.qty + ' = ' + formatKs(p.total_cost) + '</div>'
+         +   (p.supplier ? '<div class="supplier">🏢 ' + esc(p.supplier) + '</div>' : '')
+         +   '<div class="sub">' + new Date(p.created_at).toLocaleString() + '</div></div>'
+         +   '<div class="qty">+' + p.qty + '</div>'
+         + '</div>';
+  });
+  el.innerHTML = html;
+}
+
+function renderImagePreview(url){
+  var wrap = document.getElementById('imagePreview');
+  if (url){
+    wrap.innerHTML = '<img src="' + esc(url) + '" alt="preview">'
+      + '<span class="remove-btn" onclick="APP.removeImage();return false;">✕</span>';
+  } else {
+    wrap.innerHTML = '<div class="placeholder">📷<br>ဓာတ်ပုံ မရှိသေး</div>';
+  }
+}
+
+var APP = {
+  go: async function(name){
+    document.querySelectorAll('.screen').forEach(function(s){ s.classList.toggle('active', s.id === 'screen-'+name); });
+    document.querySelectorAll('.nav-btn').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-screen') === name); });
+    if (name === 'product'){ await this.loadProducts(); renderTabs(); renderTable(); }
+    else if (name === 'sale'){ renderProducts(); renderCart(); }
+    else if (name === 'purchase'){ await this.loadProducts(); renderPurchaseSelect(); renderSupplierDatalist(); renderRecentPurchases(); }
+  },
+
+  onSearch: function(v){ state.searchTerm = v; renderProducts(); },
+  setCategory: function(cat){ state.activeCategory = cat; renderTabs(); renderProducts(); },
+
+  onCategoryChange: function(){
+    var sel = document.getElementById('fCategory');
+    var newInput = document.getElementById('fCategoryNew');
+    if (sel.value === '__NEW__') { newInput.style.display = 'block'; newInput.focus(); }
+    else { newInput.style.display = 'none'; newInput.value = ''; }
+  },
+
+  onImageSelected: async function(input){
+    var file = input.files && input.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024){
+      showToast('⚠ ဓာတ်ပုံ 2MB ကျော်လို့ မရပါ'); input.value = ''; return;
+    }
+    if (!file.type.startsWith('image/')){
+      showToast('⚠ ဓာတ်ပုံ file ပဲ ရွေးပါ'); input.value = ''; return;
+    }
+    if (!navigator.onLine){
+      showToast('📴 Offline — ဓာတ်ပုံ တင်လို့ မရပါ (Online ရောက်မှ)'); input.value = ''; return;
+    }
+    var reader = new FileReader();
+    reader.onload = function(e){ renderImagePreview(e.target.result); };
+    reader.readAsDataURL(file);
+    showToast('⏳ ဓာတ်ပုံ တင်နေသည်...');
+    try {
+      var result = await uploadImageToStorage(file);
+      state.pendingImageUrl = result.url;
+      renderImagePreview(result.url);
+      showToast('✅ ဓာတ်ပုံ တင်ပြီး');
+    } catch(e){
+      console.error('[Image] upload failed:', e);
+      showToast('⚠ Upload error: ' + (e.message || 'unknown'));
+      renderImagePreview(state.originalImageUrl || '');
+      input.value = '';
+    }
+  },
+
+  removeImage: function(){
+    state.pendingImageUrl = '';
+    document.getElementById('fImage').value = '';
+    renderImagePreview('');
+    showToast('🗑 ဓာတ်ပုံ ဖျက်လိုက်');
+  },
+
+  loadProducts: async function(){
+    try {
+      var res = await sb().from('products').select('*').order('id', { ascending: true });
+      if (res.error) throw res.error;
+      state.products = (res.data || []).map(dbToProduct);
+      state.products.forEach(function(p){ Storage.set('products:' + p.id, p); });
+      var pres = await sb().from('stock_entries').select('*')
+        .order('created_at', { ascending: false }).limit(50);
+      if (!pres.error && pres.data) state.purchases = pres.data;
+      state.online = true;
+    } catch (e) {
+      console.warn('[Supabase] Load failed, using local cache:', e.message);
+      state.online = false;
+      state.products = keysWithPrefix('products:')
+        .map(function(k){ return Storage.get(k); })
+        .filter(Boolean)
+        .sort(function(a,b){ return Number(a.id) - Number(b.id); });
+      state.purchases = Storage.get('config:purchases', []);
+    }
+  },
+
+  syncFromSupabase: async function(){
+    if (!navigator.onLine){ showToast('📴 Offline — Supabase မရပါ'); return; }
+    showToast('🔄 Supabase မှ ဆွဲနေသည်...');
+    await this.loadProducts();
+    renderTabs(); renderProducts(); renderTable();
+    renderPurchaseSelect(); renderSupplierDatalist(); renderRecentPurchases();
+    showToast(state.online ? '✅ Supabase မှ ဆွဲပြီးပါပြီ' : '⚠ Offline mode');
+  },
+
+  manualSync: async function(){
+    if (!navigator.onLine){ showToast('📴 Offline — Sync လုပ်လို့ မရပါ'); return; }
+    if (!getQueue().length){ showToast('✅ Queue ဗလာ'); return; }
+    showToast('🔄 Sync လုပ်နေသည်...');
+    await autoSync();
+  },
+
+  addToCart: function(id){
+    var p = state.products.filter(function(x){ return Number(x.id) === Number(id); })[0];
+    if (!p){ showToast('⚠ ကုန်ပစ္စည်း မတွေ့ပါ'); return; }
+    var stock = Number(p.stock) || 0;
+    var existing = state.cart.filter(function(i){ return Number(i.product_id) === Number(p.id); })[0];
+    var inCart = existing ? existing.qty : 0;
+    if (stock <= 0){ showToast('⛔ ကုန်ပြီးနေပါသည်'); return; }
+    if (inCart >= stock){ showToast('⚠ Stock မလုံလောက်ပါ'); return; }
+    if (existing){ existing.qty += 1; }
+    else { state.cart.push({ product_id:Number(p.id), name:p.name, price:Number(p.price)||0, unit:unitOf(p), qty:1 }); }
+    renderCart();
+    showToast('➕ ' + p.name + ' ထည့်ပြီး');
+  },
+
+  changeQty: function(id, delta){
+    var item = state.cart.filter(function(i){ return Number(i.product_id) === Number(id); })[0];
+    if (!item) return;
+    if (delta > 0){
+      var p = state.products.filter(function(x){ return Number(x.id) === Number(id); })[0];
+      var stock = p ? Number(p.stock)||0 : 0;
+      if (item.qty + 1 > stock){ showToast('⚠ Stock မလုံလောက်ပါ'); return; }
+    }
+    item.qty += delta;
+    if (item.qty <= 0){ state.cart = state.cart.filter(function(i){ return Number(i.product_id) !== Number(id); }); }
+    renderCart();
+  },
+  clearCart: function(){ state.cart = []; renderCart(); },
+
+  checkout: async function(){
+    if (!state.cart.length) return;
+    var checkoutBtn = document.getElementById('checkoutBtn');
+    checkoutBtn.disabled = true;
+    checkoutBtn.textContent = '⏳ ပို့နေသည်...';
+
+    var saleId = Date.now();
+    var items = state.cart.map(function(i){
+      return { product_id: i.product_id, name: i.name, unit: i.unit, price: i.price, qty: i.qty, subtotal: i.price * i.qty };
+    });
+    var total = items.reduce(function(s,i){ return s + i.subtotal; }, 0);
+    var itemCount = items.reduce(function(s,i){ return s + i.qty; }, 0);
+    var createdAt = new Date().toISOString();
+
+    var stockUpdates = items.map(function(i){
+      var p = state.products.filter(function(x){ return Number(x.id) === Number(i.product_id); })[0];
+      return { id: i.product_id, newStock: Math.max(0, (Number(p ? p.stock : 0) || 0) - i.qty) };
+    });
+
+    items.forEach(function(i){
+      var p = state.products.filter(function(x){ return Number(x.id) === Number(i.product_id); })[0];
+      if (p){ p.stock = Math.max(0, (Number(p.stock) || 0) - i.qty); Storage.set('products:' + p.id, p); }
+    });
+
+    Storage.set('sales:' + saleId, {
+      id: saleId, items: items, item_count: itemCount,
+      total: total, created_at: createdAt, synced: false
+    });
+
+    state.cart = [];
+    renderCart(); renderProducts(); renderTable();
+
+    var salesRows = items.map(function(i){
+      return { sale_id: saleId, product_id: i.product_id, item: i.name, qty: i.qty, price: i.price, total: i.subtotal };
+    });
+    var queueAction = {
+      type: 'sale', sale_id: saleId, salesRows: salesRows,
+      stockUpdates: stockUpdates, created_at: createdAt
+    };
+
+    if (!navigator.onLine){
+      addToQueue(queueAction);
+      showToast('📴 Offline — ငွေရှင်းပြီး (Sync နောက်မှ)');
+      updateOfflineBadge();
+      checkoutBtn.disabled = false;
+      checkoutBtn.textContent = 'ငွေရှင်းမည်';
+      return;
+    }
+
+    try {
+      var r1 = await sb().from('sales').insert(salesRows);
+      if (r1.error) throw r1.error;
+      for (var k = 0; k < stockUpdates.length; k++){
+        var u = stockUpdates[k];
+        var r2 = await sb().from('products').update({ stock: u.newStock, updated_at: createdAt }).eq('id', u.id);
+        if (r2.error) throw r2.error;
+      }
+      var localSale = Storage.get('sales:' + saleId, {});
+      localSale.synced = true;
+      Storage.set('sales:' + saleId, localSale);
+      await this.loadProducts();
+      renderTabs(); renderProducts(); renderTable();
+      showToast('✅ ငွေရှင်းပြီးပါပြီ — ' + formatKs(total));
+    } catch (e) {
+      console.warn('[Checkout] Supabase failed, queuing:', e.message);
+      addToQueue(queueAction);
+      showToast('⚠ ပို့မရ — Queue ထဲ သိမ်း (auto-sync)');
+    } finally {
+      checkoutBtn.disabled = false;
+      checkoutBtn.textContent = 'ငွေရှင်းမည်';
+      updateOfflineBadge();
+    }
+  },
+
+  onPurchaseProductChange: function(){
+    var id = document.getElementById('pProduct').value;
+    if (!id) return;
+    var p = state.products.filter(function(x){ return Number(x.id) === Number(id); })[0];
+    if (!p) return;
+    document.getElementById('pCost').value = p.cost || 0;
+    this.calcPurchaseTotal();
+  },
+  calcPurchaseTotal: function(){
+    var qty = Number(document.getElementById('pQty').value) || 0;
+    var cost = Number(document.getElementById('pCost').value) || 0;
+    document.getElementById('pTotal').textContent = formatKs(qty * cost);
+  },
+  resetPurchaseForm: function(){
+    document.getElementById('purchaseForm').reset();
+    document.getElementById('pTotal').textContent = '0 Ks';
+  },
+
+  submitPurchase: async function(e){
+    if (e) e.preventDefault();
+    var id = document.getElementById('pProduct').value;
+    var supplier = document.getElementById('pSupplier').value.trim();
+    var qty = Number(document.getElementById('pQty').value) || 0;
+    var cost = Number(document.getElementById('pCost').value) || 0;
+
+    if (!id){ showToast('⚠ ကုန်ပစ္စည်း ရွေးပါ'); return; }
+    if (!supplier){ showToast('⚠ Supplier ဖြည့်ပါ'); return; }
+    if (qty <= 0){ showToast('⚠ အရေအတွက် ဖြည့်ပါ'); return; }
+
+    var p = state.products.filter(function(x){ return Number(x.id) === Number(id); })[0];
+    if (!p){ showToast('⚠ ကုန်ပစ္စည်း မတွေ့ပါ'); return; }
+
+    var purchaseId = Date.now();
+    var totalCost = qty * cost;
+    var createdAt = new Date().toISOString();
+    var newStock = (Number(p.stock)||0) + qty;
+
+    p.stock = newStock;
+    Storage.set('products:' + p.id, p);
+    addSupplierIfNew(supplier);
+
+    var entry = {
+      purchase_id: purchaseId, product_id: p.id, product_name: p.name,
+      qty: qty, cost_price: cost, total_cost: totalCost,
+      supplier: supplier, created_at: createdAt
+    };
+
+    var offlineList = Storage.get('config:purchases', []);
+    offlineList.unshift(entry);
+    Storage.set('config:purchases', offlineList.slice(0, 50));
+
+    await this.loadProducts();
+    renderPurchaseSelect(); renderSupplierDatalist(); renderRecentPurchases();
+    renderProducts(); renderTable();
+    this.resetPurchaseForm();
+
+    var queueAction = {
+      type: 'purchase', entry: entry,
+      product_id: p.id, newStock: newStock, created_at: createdAt
+    };
+
+    if (!navigator.onLine){
+      addToQueue(queueAction);
+      showToast('📴 Offline — သိမ်းပြီး (Sync နောက်မှ)');
+      updateOfflineBadge();
+      return;
+    }
+
+    try {
+      var r1 = await sb().from('stock_entries').insert(entry);
+      if (r1.error) throw r1.error;
+      var r2 = await sb().from('products').update({ stock: newStock, updated_at: createdAt }).eq('id', p.id);
+      if (r2.error) throw r2.error;
+      showToast('📥 ' + p.name + ' +' + qty + ' သိမ်းပြီး');
+    } catch (err) {
+      addToQueue(queueAction);
+      showToast('⚠ ပို့မရ — Queue ထဲ သိမ်း');
+    }
+    updateOfflineBadge();
+  },
+
+  resetForm: function(){
+    state.editingId = null;
+    state.pendingImageUrl = '';
+    state.originalImageUrl = '';
+    document.getElementById('productForm').reset();
+    document.getElementById('formTitle').textContent = 'ကုန်ပစ္စည်း အသစ်ထည့်ရန်';
+    document.getElementById('saveBtn').textContent = 'သိမ်းဆည်းမည်';
+    renderCategorySelect();
+    renderImagePreview('');
+    var newInput = document.getElementById('fCategoryNew');
+    newInput.style.display = 'none';
+    newInput.value = '';
+  },
+
+  submitForm: async function(e){
+    if (e) e.preventDefault();
+    var nameVal = document.getElementById('fName').value.trim();
+    var catSelect = document.getElementById('fCategory').value;
+    var catNew = document.getElementById('fCategoryNew').value.trim();
+    var priceVal = Number(document.getElementById('fPrice').value) || 0;
+
+    if (!nameVal){ showToast('⚠ အမည် ဖြည့်ပါ'); return; }
+    if (!catSelect){ showToast('⚠ အမျိုးအစား ရွေးပါ'); return; }
+    if (priceVal <= 0){ showToast('⚠ ရောင်းဈေး ဖြည့်ပါ'); return; }
+
+    var finalCategory;
+    if (catSelect === '__NEW__') {
+      if (!catNew){ showToast('⚠ အသစ် အမျိုးအစား အမည် ဖြည့်ပါ'); return; }
+      finalCategory = catNew;
+      addCustomCategory(catNew);
+    } else { finalCategory = catSelect; }
+
+    var data = {
+      name: nameVal, category: finalCategory, price: priceVal,
+      cost: Number(document.getElementById('fCost').value) || 0,
+      barcode: document.getElementById('fBarcode').value.trim(),
+      lowStockAlert: Number(document.getElementById('fLow').value) || 0,
+      variants: document.getElementById('fVariants').value.split(',').map(function(s){ return s.trim(); }).filter(Boolean),
+      emoji: document.getElementById('fEmoji').value.trim() || '📦',
+      stock: Number(document.getElementById('fStock').value) || 0,
+      imageUrl: state.pendingImageUrl || ''
+    };
+
+    var saveBtn = document.getElementById('saveBtn');
+    saveBtn.disabled = true;
+    var oldText = saveBtn.textContent;
+    saveBtn.textContent = '⏳ သိမ်းနေသည်...';
+
+    var dbRow = productToDb(data);
+    var now = new Date().toISOString();
+
+    if (!navigator.onLine){
+      if (state.editingId){
+        var existing = state.products.filter(function(p){ return Number(p.id) === Number(state.editingId); })[0];
+        Storage.set('products:' + state.editingId, Object.assign({}, existing, data, { id: state.editingId }));
+        addToQueue({ type: 'product-update', id: state.editingId, data: Object.assign({}, dbRow, { updated_at: now }) });
+      } else {
+        var tempId = -Date.now();
+        Storage.set('products:' + tempId, Object.assign({ id: tempId }, data));
+        addToQueue({ type: 'product-create', tempId: tempId, data: dbRow });
+      }
+      await this.loadProducts();
+      renderTabs(); renderProducts(); renderTable();
+      this.resetForm();
+      saveBtn.disabled = false;
+      saveBtn.textContent = oldText;
+      showToast('📴 Offline — သိမ်းပြီး (Sync နောက်မှ)');
+      updateOfflineBadge();
+      return;
+    }
+
+    try {
+      if (state.editingId){
+        var r1 = await sb().from('products')
+          .update(Object.assign({}, dbRow, { updated_at: now }))
+          .eq('id', state.editingId);
+        if (r1.error) throw r1.error;
+        if (state.originalImageUrl && state.originalImageUrl !== state.pendingImageUrl){
+          deleteImageFromStorage(state.originalImageUrl);
+        }
+        showToast('✅ ပြင်ဆင်ပြီးပါပြီ');
+      } else {
+        var r2 = await sb().from('products').insert(dbRow).select().single();
+        if (r2.error) throw r2.error;
+        showToast('✅ ကုန်ပစ္စည်း ထည့်ပြီးပါပြီ');
+      }
+      await this.loadProducts();
+      renderTabs(); renderProducts(); renderTable();
+      this.resetForm();
+    } catch (err) {
+      console.warn('[Save] Supabase failed, queuing:', err.message);
+      if (state.editingId){
+        var existing2 = state.products.filter(function(p){ return Number(p.id) === Number(state.editingId); })[0];
+        Storage.set('products:' + state.editingId, Object.assign({}, existing2, data, { id: state.editingId }));
+        addToQueue({ type: 'product-update', id: state.editingId, data: Object.assign({}, dbRow, { updated_at: now }) });
+      } else {
+        var tempId2 = -Date.now();
+        Storage.set('products:' + tempId2, Object.assign({ id: tempId2 }, data));
+        addToQueue({ type: 'product-create', tempId: tempId2, data: dbRow });
+      }
+      await this.loadProducts();
+      renderTabs(); renderProducts(); renderTable();
+      this.resetForm();
+      showToast('⚠ ပို့မရ — Queue ထဲ သိမ်း');
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = oldText;
+      updateOfflineBadge();
+    }
+  },
+
+  editProduct: function(id){
+    var p = state.products.filter(function(x){ return Number(x.id) === Number(id); })[0];
+    if (!p) return;
+    state.editingId = Number(p.id);
+    state.pendingImageUrl = p.imageUrl || '';
+    state.originalImageUrl = p.imageUrl || '';
+
+    document.getElementById('fName').value = p.name || '';
+    renderCategorySelect(p.category || '');
+    document.getElementById('fCategoryNew').style.display = 'none';
+    document.getElementById('fCategoryNew').value = '';
+    document.getElementById('fPrice').value = p.price != null ? p.price : '';
+    document.getElementById('fCost').value = p.cost != null ? p.cost : '';
+    document.getElementById('fBarcode').value = p.barcode || '';
+    document.getElementById('fLow').value = p.lowStockAlert != null ? p.lowStockAlert : 0;
+    document.getElementById('fVariants').value = (p.variants || []).join(', ');
+    document.getElementById('fEmoji').value = p.emoji || '';
+    document.getElementById('fStock').value = p.stock || 0;
+    document.getElementById('fImage').value = '';
+    renderImagePreview(p.imageUrl || '');
+
+    document.getElementById('formTitle').textContent = 'ကုန်ပစ္စည်း ပြင်ဆင်ရန်';
+    document.getElementById('saveBtn').textContent = 'ပြင်ဆင်ချက် သိမ်းမည်';
+    document.getElementById('screen-product').scrollTo({ top:0, behavior:'smooth' });
+  },
+
+  deleteProduct: async function(id){
+    var p = state.products.filter(function(x){ return Number(x.id) === Number(id); })[0];
+    if (!p) return;
+
+    if (p.imageUrl && navigator.onLine){
+      await deleteImageFromStorage(p.imageUrl);
+    }
+
+    Storage.remove('products:' + id);
+
+    if (!navigator.onLine){
+      addToQueue({ type: 'product-delete', id: Number(id) });
+      showToast('📴 Offline — ဖျက်ပြီး (Sync နောက်မှ)');
+    } else {
+      try {
+        var r = await sb().from('products').delete().eq('id', Number(id));
+        if (r.error) throw r.error;
+        showToast('🗑 ဖျက်ပြီးပါပြီ');
+      } catch (e) {
+        addToQueue({ type: 'product-delete', id: Number(id) });
+        showToast('⚠ ပို့မရ — Queue ထဲ သိမ်း');
+      }
+    }
+
+    if (Number(state.editingId) === Number(id)) this.resetForm();
+    await this.loadProducts();
+    renderTabs(); renderProducts(); renderTable();
+    updateOfflineBadge();
+  }
+};
+window.APP = APP;
+
+/* INIT */
+async function init(){
+  try {
+    seedLocalIfNeeded();
+    if (!navigator.onLine){
+      state.online = false;
+      updateOfflineBadge();
+      showToast('📴 Offline mode — Local data သုံးနေသည်');
+    } else {
+      showToast('🌐 Online');
+    }
+
+    await APP.loadProducts();
+    renderTabs(); renderProducts(); renderCart(); renderTable();
+    renderPurchaseSelect(); renderSupplierDatalist(); renderRecentPurchases();
+    renderCategorySelect();
+    renderImagePreview('');
+    updateQueueBadge();
+
+    if (navigator.onLine){
+      var q = getQueue();
+      if (q.length > 0){
+        setTimeout(function(){ autoSync(); }, 1500);
+      }
+    }
+
+    console.log('[Mini-Mart POS] Ready | products:', state.products.length, '| online:', state.online, '| queue:', getQueue().length);
+  } catch (e){
+    console.error('Init error:', e);
+    var el = document.getElementById('jsError');
+    if (el){ el.style.display = 'block'; el.textContent = '⚠ Init error: ' + e.message; }
+  }
+}
+init();
+</script>
+</body>
+</html>
